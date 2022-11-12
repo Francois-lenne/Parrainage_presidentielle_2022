@@ -1,0 +1,321 @@
+---
+title: "Projet Programmation sur R"
+author: "François Lenne & Yoann Playez"
+date: "02/03/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+# Librairie utilisé dans l'analyse
+
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+library(tidyverse)
+library(plotly)
+library(FactoMineR)
+library(factoextra)
+library(readr)
+```
+
+
+
+
+# Introduction et contexte 
+
+
+
+  **Cette année 2022 est une année présidentielle**. En effet, le 10 et 24 avril les Français sont appelés aux urnes pour élire le prochain président de la république française. 
+  
+
+Chaque élection présidentielle est régit par des régles mises en place par  **le conseil constitutionnelle**  :
+
+* Etre de nationalité française ;
+
+* Ne pas être privé de ses droits civiques concernant l'éligibilité ;
+
+*  Ne pas être privé de ses droits civiques concernant l'éligibilité ;
+
+* Etre inscrit sur une liste électorale ;
+
+* Avoir satisfait aux obligations imposées par le code du service national ;
+
+
+* Avoir minimum 500 parrainages de la part d'élus de la république française;
+
+
+
+  Les Candidats doivent recevoir 500 parrainages de la part d'élus de la République Française. Pour la premiére fois les données de ces parrainges sont disponbiles sur:
+  --> https://www.data.gouv.fr/fr/ 
+
+
+Le conseil constituionnelle met à disponbilité de nombreuse données :
+
+
+'https://www.data.gouv.fr/fr/datasets/r/ec9a257b-b62a-4c95-9a32-e3f0b54898d0', encoding = "UTF-8"
+
+```{r}
+ data = read_delim("and_geo.csv", delim = ";", 
+    escape_double = FALSE, trim_ws = TRUE)
+```
+
+
+```{r}
+library(knitr)
+
+kable(data[1:10,], caption  = 'visualisation des 10 premiéres lignes de notre base de données' )
+
+```
+
+
+
+
+# Selection des candidats 
+
+
+
+```{r}
+
+library(sqldf)
+
+kable(sqldf("select distinct Candidat from data"), caption = "liste des candidats")
+
+
+```
+
+
+  Une cinquantaine de citoyen ont été parrainé par des élus de la république française. Certains sont des candidats d'autres non. On peut par exemple cité, l'astronaute Thomas Pesquet ou encore l'humouriste Guillaume Meurice. Enfin, sur le reste des candidats nous avons certains qui ont abandonnée la course il y a plusieurs mois Comme l'ancien ministre de l'économie Arnaud Montebourg tandis que d'autres candidats n'ont obtenue que trés peu de parrainage comme le philosophe Gaspard Koenig. De ce fait, nous garderons les candidats qui ont obtenue plus de 400 signatures soient 12 candidats 
+  
+  
+```{r}
+data_r1 = filter(data,Candidat %in% c("ZEMMOUR Éric", "MÉLENCHON Jean-Luc", "LE PEN Marine","LASSALLE Jean","HIDALGO Anne","JADOT Yannick", "ARTHAUD Nathalie", "POUTOU Philippe", "MACRON Emmanuel","PÉCRESSE Valérie", "ROUSSEL Fabien", "DUPONT-AIGNAN Nicolas"))
+
+
+kable(sqldf("select distinct Candidat from data_r1"), caption = "liste des candidats selectionner")
+
+
+```
+ 
+ 
+
+
+# Statistiques Descriptives 
+
+
+
+```{r}
+freq1 = data_r1 %>%
+  group_by(Candidat,Civilité) %>%
+  summarise(n = n()) %>%
+  mutate(part = n / sum(n))
+
+
+
+freq1$part = round(freq1$part * 100)
+```
+
+```{r}
+fig <- plot_ly(freq1, labels = ~Civilité, values = ~n, type = 'pie',
+  insidetextfont = list(color = '#FFFFFF'),
+  marker = list(colors = c("#a4c3f5","#f5c6f0")),
+   line = list(color = '#FFFFFF', width = 1))
+
+
+ fig <- fig %>% layout(title = 'Répartition de sexe des élus',
+         xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+
+ 
+ fig
+ 
+```
+
+
+
+```{r}
+AB_SEXE = ggplot(data=freq1, aes(x=Candidat, y=part, fill=Civilité)) +
+  geom_bar(stat="identity") +
+ labs(x = "liste des candidats ", y = "Part d'individu", title = "Part d'élue en fonction de leur sexe", caption = "source :  Conseil Constitutionnelle")+ 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+scale_fill_manual("legend", values = c("M." = "#a4c3f5", "Mme" = "#f5c6f0")) 
+
+
+zzzzz = AB_SEXE + labs(fill = "Sexe")
+
+ggplotly(zzzzz)
+```
+
+
+
+
+Nous pouvons constater à l'aide de ce graphique que Yannick Jadot,Anne Hidalgo et Marine Le pen ont une part de parrainage provenant supérieur à la moyenne. A l'inverse, Nicolas Dupont-Aignan, Jean Lassalle et Eric Zemmour ont eux peu de parrainage provenant de Femme.
+
+
+```{r}
+data_r1$date <- as.POSIXct(data_r1$`Date de publication`, format = "%d/%m/%Y", tx = "GMT")
+
+
+```
+
+
+
+```{r}
+
+count2 = data_r1 %>%
+  group_by(Candidat,date) %>%
+  summarise(NB_parrainage = n())
+
+```
+
+
+```{r}
+t_s = ggplot(count2, aes(x = date, y = NB_parrainage)) + 
+  geom_line(aes(color = Candidat), size = 1) +
+  scale_color_manual(values = c("#fc0303", "#232454","#de8cd4","#a4edac","#a5e5f2","blue","#b7dfeb","#f24949","#5062a1","#7a0614","#700d04","#0c0930")) +
+  theme_minimal()
+
+
+ggplotly(t_s)
+```
+
+  Sur ce Graphique nous pouvons constater que les candidats bénéficiant de soutien de partie politique implanté localement comme Valérie Pécresse (LR) ou encore Emmanuel Macron (LREM) ont tendance a avoir beaucoup de parrainage lors du début de la campagne de parrainages à l'invserse, les candidats ne bénéficiant pas d'appuie local ont tendance a recevoir leur candidatures à la fin de la campagne.
+
+
+
+## nuage de mot 
+
+
+```{r}
+library("tm")
+library("SnowballC")
+library("wordcloud")
+library("RColorBrewer")
+```
+
+
+```{r}
+docs <- Corpus(VectorSource(data_r1$Prénom))
+```
+
+
+
+```{r}
+dtm <- TermDocumentMatrix(docs)
+m <- as.matrix(dtm)
+v <- sort(rowSums(m),decreasing=TRUE)
+d <- data.frame(word = names(v),freq=v)
+```
+
+```{r message=FALSE, warning=FALSE}
+set.seed(1234)
+wordcloud(words = d$word, freq = d$freq, min.freq = 1,
+          max.words=200, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+
+
+## 
+
+```{r}
+barplot(d[1:10,]$freq, las = 2, names.arg = d[1:10,]$word,
+        col ="lightblue", main ="Fréquences des prénoms du maire",
+        ylab = "fréquences prenon")
+```
+
+
+
+# Lancement de la premiére ACM
+
+
+## qu'est ce qu'une ACM
+
+
+
+
+
+## 1ère ACM
+
+
+### créeation de la base de donnée utilisé dans notre ACM
+
+
+Afin de réaliser notre ACM nous sauvegarderons 4 variable 
+
+* le type de  mandat 
+
+* civilité
+
+* le département 
+
+* les candidats 
+
+
+
+```{r}
+
+ACM = select(data_r1, c("Département","Candidat"))
+
+```
+
+
+```{r}
+res.mca <- MCA (ACM, graph = TRUE, ncp = 5 )
+```
+
+```{r}
+
+fviz_screeplot (res.mca, addlabels = TRUE, ylim = c (0,35))
+
+```
+
+```{r}
+fviz_mca_var(res.mca, col.var = "cos2",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+             repel = TRUE, 
+             ggtheme = theme_minimal()) +
+               labs(title = "ACM")
+```
+
+```{r}
+res.hcpc <- HCPC (res.mca, graph = FALSE, max = 5)
+```
+
+```{r}
+fviz_dend(res.hcpc, show_labels = FALSE)
+
+```
+
+
+
+```{r}
+fviz_cluster(res.hcpc, geom = "point", main = "Factor map") +
+               labs(title = "Visulalisation des groupes d'observations")
+```
+
+
+```{r}
+res.hcpc$desc.var$category
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
